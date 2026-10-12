@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F5F5F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>气息训练台</title>
+<style>
+/* Layout: one narrow column, iOS-style large title, segmented control, one stage card with a single round action button */
+:root{
+  --bg:#F5F5F7; --surface:#FFFFFF; --fg:#1D1D1F; --muted:#6E6E73; --line:rgba(60,60,67,.12);
+  --fill:rgba(118,118,128,.12); --seg-on:#FFFFFF;
+  --accent:#C2603E; --accent-soft:rgba(194,96,62,.14); --on-accent:#FFFFFF;
+  --good:#248A3D; --warn:#B25000; --bad:#D70015;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  --num:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue","Roboto",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#000000; --surface:#1C1C1E; --fg:#F5F5F7; --muted:#98989D; --line:rgba(84,84,88,.6);
+  --fill:rgba(118,118,128,.24); --seg-on:#636366;
+  --accent:#E3896A; --accent-soft:rgba(227,137,106,.18); --on-accent:#1C1C1E;
+  --good:#30D158; --warn:#FF9F0A; --bad:#FF453A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#000000; --surface:#1C1C1E; --fg:#F5F5F7; --muted:#98989D; --line:rgba(84,84,88,.6);
+  --fill:rgba(118,118,128,.24); --seg-on:#636366;
+  --accent:#E3896A; --accent-soft:rgba(227,137,106,.18); --on-accent:#1C1C1E;
+  --good:#30D158; --warn:#FF9F0A; --bad:#FF453A; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.45;
+  padding-inline:16px;padding-block:12px 48px;-webkit-font-smoothing:antialiased}
+.app{max-width:540px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{padding:8px 4px 0}
+.eyebrow{margin:0;font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+h1{margin:2px 0 0;font-size:34px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+
+.seg{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;padding:2px;border-radius:10px;background:var(--fill)}
+.seg button{appearance:none;border:0;background:transparent;color:var(--fg);font:600 14px var(--font);
+  padding:7px 0;border-radius:8px;cursor:pointer;transition:background .2s}
+.seg button[aria-selected="true"]{background:var(--seg-on);box-shadow:0 1px 3px rgba(0,0,0,.12),0 1px 1px rgba(0,0,0,.04)}
+
+.card{background:var(--surface);border-radius:20px;padding:20px}
+.stage{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.kind{font:700 12px var(--font);color:var(--accent);background:var(--accent-soft);padding:4px 10px;border-radius:999px}
+.steps{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.pill{appearance:none;border:0;cursor:pointer;display:flex;gap:6px;align-items:baseline;
+  padding:6px 12px;border-radius:999px;background:var(--fill);color:var(--fg);font:600 13px var(--font)}
+.pill span{font-family:var(--num);font-variant-numeric:tabular-nums;color:var(--muted);font-weight:500}
+.pill.on{background:var(--accent-soft);color:var(--accent)}
+.pill.on span{color:var(--accent)}
+.mode-title{font-size:15px;font-weight:600;margin:0}
+.big{font-family:var(--num);font-weight:200;font-size:88px;line-height:1;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;margin:4px 0 0}
+.big small{font-size:22px;font-weight:400;color:var(--muted);letter-spacing:0;margin-left:4px}
+.phase{font-size:34px;font-weight:700;letter-spacing:-.01em;margin:0;line-height:1.1}
+.phase.in{color:var(--accent)}
+.status{margin:0;font-size:15px;color:var(--muted);min-height:1.45em;max-width:30ch;text-wrap:balance}
+.status.live{color:var(--fg);font-weight:600}
+canvas{width:100%;height:150px;display:block;border-radius:12px;background:var(--bg)}
+.go{width:84px;height:84px;border-radius:50%;border:0;cursor:pointer;background:var(--accent);
+  color:var(--on-accent);font:600 17px var(--font);transition:transform .15s,background .2s}
+.go:active{transform:scale(.95)}
+.go.stop{background:var(--fill);color:var(--fg);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 var(--accent-soft)}50%{box-shadow:0 0 0 14px var(--accent-soft)}}
+button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+
+.sec{margin:8px 4px -8px;font-size:13px;font-weight:600;color:var(--muted)}
+.guide{margin:0;padding:0;list-style:none;counter-reset:g;display:flex;flex-direction:column;gap:10px}
+.guide li{counter-increment:g;display:grid;grid-template-columns:24px 1fr;gap:10px;font-size:15px}
+.guide li::before{content:counter(g);width:24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent);
+  font:700 13px var(--num);display:flex;align-items:center;justify-content:center}
+.rows{display:flex;flex-direction:column}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0;padding-top:0}
+.row:last-child{padding-bottom:0}
+.k{color:var(--muted);font-size:15px;min-width:0}
+.k b{display:block;color:var(--fg);font-weight:600}
+.v{display:flex;align-items:center;gap:8px;font-family:var(--num);font-size:20px;font-weight:600;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.v small{font-size:13px;font-weight:500;color:var(--muted)}
+.tag{font:700 12px var(--font);padding:3px 8px;border-radius:999px;background:var(--fill);color:var(--muted)}
+.tag.good{color:var(--good);background:color-mix(in srgb,var(--good) 14%,transparent)}
+.tag.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+.tag.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
+.spark{width:72px;height:24px;flex:none}
+
+.advice{display:flex;flex-direction:column;gap:14px}
+.advice h3{margin:0;font-size:17px;font-weight:700;line-height:1.35;text-wrap:balance}
+.advice .why{margin:-6px 0 0;font-size:15px;color:var(--muted)}
+.advice ol{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:8px;font-size:15px}
+.advice ol b{font-weight:600}
+.advice .next{font-size:14px;color:var(--muted);margin:0;padding-top:12px;border-top:1px solid var(--line)}
+.advice + .advice{margin-top:4px;padding-top:18px;border-top:1px solid var(--line)}
+
+.notice{display:flex;flex-direction:column;gap:12px;font-size:15px}
+.notice p{margin:0}
+.notice.info{background:var(--accent-soft)}
+.btn{appearance:none;border:0;cursor:pointer;display:inline-flex;justify-content:center;align-items:center;
+  padding:12px 18px;border-radius:12px;background:var(--accent);color:var(--on-accent);font:600 16px var(--font)}
+.btn.plain{background:var(--fill);color:var(--fg)}
+.btn.danger{background:transparent;color:var(--bad);padding-inline:0}
+.btns{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btns.fill > *{flex:1}
+input[type=file]{position:absolute;width:1px;height:1px;opacity:0}
+.banner{border-radius:14px;padding:14px 16px;background:color-mix(in srgb,var(--good) 14%,transparent);color:var(--good);font-weight:600;font-size:15px}
+.empty{color:var(--muted);font-size:15px;margin:0}
+.hist .k{font-size:14px}
+.hist .k b{font-size:15px}
+.hist .v{font-size:16px}
+
+.set{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.set:first-child{border-top:0;padding-top:0}
+.set:last-child{padding-bottom:0}
+.set > span{font-size:15px;font-weight:600}
+.stepper{display:flex;align-items:center;gap:4px;background:var(--fill);border-radius:10px;padding:2px}
+.stepper button{appearance:none;border:0;background:transparent;color:var(--fg);width:36px;height:32px;border-radius:8px;font:500 20px var(--num);cursor:pointer}
+.stepper output{min-width:76px;text-align:center;font:600 15px var(--num);font-variant-numeric:tabular-nums}
+.chips{display:flex;gap:2px;background:var(--fill);border-radius:10px;padding:2px}
+.chips button{appearance:none;border:0;background:transparent;color:var(--fg);padding:6px 10px;border-radius:8px;font:600 14px var(--font);cursor:pointer}
+.chips button[aria-pressed="true"]{background:var(--seg-on);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+textarea{width:100%;margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:13px/1.4 ui-monospace,Menlo,monospace;resize:vertical}
+details{font-size:14px}
+details summary{cursor:pointer;font-weight:600;color:var(--fg)}
+.today{display:flex;align-items:center;gap:8px;margin:0;font:600 13px var(--font);color:var(--muted);font-variant-numeric:tabular-nums}
+.dots{display:flex;gap:5px}
+.dots i{width:8px;height:8px;border-radius:50%;background:var(--fill)}
+.dots i.on{background:var(--accent)}
+.link{appearance:none;border:0;background:none;color:var(--accent);font:600 13px var(--font);cursor:pointer;padding:6px 4px}
+.legend{display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--muted);text-align:left;width:100%}
+@media (max-width:380px){.seg button{font-size:13px}.big{font-size:72px}}
+@media (prefers-reduced-motion: reduce){.go.stop{animation:none}*{transition:none!important}}
+</style>
+
+<main class="app">
+  <header>
+    <p class="eyebrow">声乐训练 · 第一阶段</p>
+    <h1>气息训练台</h1>
+  </header>
+
+  <nav class="seg" role="tablist" aria-label="练习类型">
+    <button role="tab" data-mode="base" aria-selected="true">基线</button>
+    <button role="tab" data-mode="hiss" aria-selected="false">嘶声</button>
+    <button role="tab" data-mode="slide" aria-selected="false">滑音</button>
+    <button role="tab" data-mode="walk" aria-selected="false">步行</button>
+    <button role="tab" data-mode="log" aria-selected="false">记录</button>
+  </nav>
+
+  <section id="practice" class="app">
+    <div class="card notice info" id="embedNote" hidden>
+      <p><b>在 Claude 里预览时，麦克风被禁止。</b></p>
+      <p>两种用法：一是用手机录音机录下这一遍，再选择录音文件分析；二是打开部署到 https 地址的独立版，可以实时测量。步行训练不用麦克风，在这里可以直接用。</p>
+      <div class="btns"><label class="btn" for="fileIn">选择录音文件</label></div>
+    </div>
+
+    <div class="card stage" id="stage">
+      <span class="kind" id="kindTag"></span>
+      <p class="today" id="today" hidden></p>
+      <div class="steps" id="steps"></div>
+      <p class="mode-title" id="modeTitle"></p>
+      <div class="big"><span id="bigNum">0.0</span><small id="bigUnit">秒</small></div>
+      <p class="status" id="status" aria-live="polite"></p>
+      <canvas id="scope" aria-label="实时曲线"></canvas>
+      <button class="go" id="mainBtn">开始</button>
+    </div>
+
+    <div class="card notice" id="fallback" hidden>
+      <p><b>麦克风不可用。</b>可能是没有授权，或当前打开方式不允许网页使用麦克风。</p>
+      <p>可以先用手机录音机录下这一遍，再选择录音文件，得到同样的分析结果。</p>
+      <div class="btns"><label class="btn" for="fileIn">选择录音文件</label></div>
+    </div>
+    <input type="file" id="fileIn" accept="audio/*">
+
+    <h2 class="sec">怎么练</h2>
+    <div class="card"><ol class="guide" id="guide"></ol></div>
+
+    <h2 class="sec" id="dailyH">日常练法</h2>
+    <div class="card" id="dailyCard"><ol class="guide" id="daily"></ol><p class="next" id="dailyNote" style="margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)"></p></div>
+
+    <h2 class="sec">本次结果</h2>
+    <div class="card"><div class="rows" id="results"></div></div>
+
+    <h2 class="sec">训练建议</h2>
+    <div class="card" id="advice"></div>
+  </section>
+
+  <section id="walkView" class="app" hidden>
+    <div class="card stage">
+      <span class="kind">训练 · 不用麦克风 · 户外可用</span>
+      <p class="phase" id="wPhase">准备</p>
+      <div class="big"><span id="wNum">4</span><small>步</small></div>
+      <p class="status" id="wStatus">设好呼气步数，按开始</p>
+      <button class="go" id="wBtn">开始</button>
+      <div class="legend">
+        <span>两声上行高音 = 吸气 4 步</span>
+        <span>一声长低音 = 开始呼气</span>
+        <span>一声轻柔音 = 自由呼吸 8 步</span>
+      </div>
+    </div>
+
+    <div class="card" id="wSettings">
+      <div class="set"><span>呼气长度</span><div class="stepper"><button id="exMinus" aria-label="减少">−</button><output id="exOut">12 步</output><button id="exPlus" aria-label="增加">+</button></div></div>
+      <div class="set"><span>步频</span><div class="stepper"><button id="spmMinus" aria-label="减少">−</button><output id="spmOut">110 步/分</output><button id="spmPlus" aria-label="增加">+</button></div></div>
+      <div class="set"><span>时长</span><div class="chips" id="durChips"><button data-v="5">5 分</button><button data-v="10">10 分</button><button data-v="15">15 分</button></div></div>
+      <div class="set"><span>呼气方式</span><div class="chips" id="howChips"><button data-v="s">嘶声</button><button data-v="m">哼鸣</button><button data-v="r">唇颤</button></div></div>
+      <div class="set"><span>每步节拍声</span><div class="chips" id="tickChips"><button data-v="1">开</button><button data-v="0">关</button></div></div>
+    </div>
+
+    <div class="card" id="wResult" hidden></div>
+
+    <h2 class="sec">怎么练</h2>
+    <div class="card"><ol class="guide">
+      <li>先用一两分钟正常走路，找到自然步频，用上面的步频调到和脚步一致。</li>
+      <li>按开始后手机可放口袋。听到两声上行高音，用 4 步吸气，下肋向两侧张开；听到长低音，开始匀速呼气，同时保持下肋张开；轻柔音之后自由呼吸 8 步休息。</li>
+      <li>人多时用哼鸣，声音小；身边没人时用嘶声或唇颤。练完选感受，下一次的呼气步数会自动调整。</li>
+      <li>戴单只耳机或外放，注意路况。出现头晕立刻停，恢复正常呼吸。</li>
+    </ol></div>
+  </section>
+
+  <section id="logView" class="app" hidden>
+    <h2 class="sec">进阶判据</h2>
+    <div class="card"><div class="rows" id="criteria"></div></div>
+    <div id="banner"></div>
+    <h2 class="sec">历史</h2>
+    <div class="card"><div class="rows hist" id="history"></div></div>
+    <div class="btns" id="clearBox"></div>
+
+    <h2 class="sec">备份</h2>
+    <div class="card notice">
+      <p>记录只存在这台设备的这个浏览器里，清除浏览器数据就会丢失。建议每周导出一次。Claude 里的版本和独立版记录互不相通，也可以用导出、导入把记录搬过去。</p>
+      <div class="btns">
+        <button class="btn" id="expBtn">导出备份文件</button>
+        <button class="btn plain" id="copyBtn">复制备份文本</button>
+        <label class="btn plain" for="impFile">导入备份文件</label>
+      </div>
+      <input type="file" id="impFile" accept=".json,application/json,text/plain">
+      <details>
+        <summary>粘贴备份文本导入</summary>
+        <textarea id="impText" rows="4" aria-label="备份文本"></textarea>
+        <div class="btns" style="margin-top:10px"><button class="btn plain" id="impBtn">导入这段文本</button></div>
+      </details>
+      <p class="status live" id="bkStatus" aria-live="polite"></p>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const inFrame=(()=>{try{return window.self!==window.top}catch(e){return true}})();
+const STEPS=[
+  {key:'s',name:'嘶声 s',go:'发 s',tip:'吸足气，平稳地发 s，直到气用完'},
+  {key:'z',name:'滋声 z',go:'发 z',tip:'吸足气，平稳地发 z，喉咙有振动感'},
+  {key:'a',name:'元音 a',go:'唱 a',tip:'用舒适的音高持续唱 a，直到气用完'}
+];
+const MODE={
+  base:{title:'基线测试',kind:'测试 · 每周一次 · 安静房间',sig:'level',go:null,
+    guide:['手机放在嘴前约 20 厘米，坐直或站直，每次测试保持同样的距离。','按开始后保持安静 1 秒，跟着提示吸气 3 拍，听到开始再发声。声音停下会自动结束计时。','依次完成 s、z、a 三项，每项都是一口气用到底。点上方的小标签可以重测某一项。']},
+  hiss:{title:'持续嘶声',kind:'训练 + 测量 · 安静房间',sig:'level',go:'发 s',
+    guide:['手机放在嘴前约 20 厘米，距离每次相同，波动数字才可比。','跟着提示吸气，然后匀速发 s。全程用手感受下肋，呼气时不要让它往回收。','一组做 3 遍，每遍之间休息 30 秒。每天 1 到 2 组。'],
+    daily:['<b>姿态与吸气，1 分钟</b>：站直，双手叉在下肋两侧，用鼻子吸气 4 拍，感受手被向外推，肩膀不动。做 5 次。',
+      '<b>持续嘶声，3 遍</b>：用本页面测量。吸 4 拍，匀速发 s 到气用完前两成时停，每遍休息 30 秒。',
+      '<b>阶梯嘶声，3 轮</b>：吸 4 拍，嘶 8 拍；吸 4 拍，嘶 12 拍；吸 4 拍，嘶 16 拍。心里数拍，拍子要匀。',
+      '<b>脉冲嘶声，3 组</b>：s s s 短促断开，每组 10 下。每一下由腹部轻弹发出，下一下之前不重新大吸气。',
+      '<b>强弱控制，3 遍</b>：一口气里，s 用 8 拍从很轻渐强到中等，再用 8 拍渐弱回很轻。音量变化要平滑，没有台阶。',
+      '<b>换辅音，各 1 遍</b>：用 f、sh 重复第 2 项。三个辅音的时长应该接近，差距大说明某个音的口型在漏气。'],
+    dailyNote:'约 10 分钟。升级标准：持续嘶声连续三天比之前多 2 秒以上，阶梯就再加一级 20 拍。'},
+  slide:{title:'唇颤音 / 吸管滑音',kind:'训练 + 测量 · 安静房间',sig:'pitch',go:'开始滑音',
+    guide:['嘴唇放松做唇颤音，做不起来就用手指轻推两颊；或者含一根细吸管发 u。','一口气从最低舒服的音滑到最高舒服的音，再滑回来。高处变轻，不要往上顶。','一组做 5 遍。曲线断开的位置就是你的换声点，建议会告诉你在哪个音。'],
+    daily:['<b>吸管水杯，2 分钟</b>：细吸管插进水杯，水深 2 到 5 厘米。含住吸管，在说话音高上发 u，持续 5 秒，做 5 次。目标是气泡大小均匀、不断。',
+      '<b>吸管水杯滑音，5 遍</b>：同样在水里，从低滑到高再滑回。气泡忽大忽小的位置，就是气流失控的音。',
+      '<b>唇颤音滑音，5 遍</b>：离开水杯，唇颤音做同样的低高低滑音。用本页面测量，看中断和跨度。',
+      '<b>唇颤五度音阶</b>：唱 1-2-3-4-5-4-3-2-1，从舒服的低音起，每遍升半音，升到吃力前停，再一路降回来。',
+      '<b>换声点往返，10 遍</b>：页面指出的断点上下 3 个半音之间来回慢滑，越过断点时音量减半。没有断点就跳过。',
+      '<b>吸管唱歌，1 首</b>：含着吸管（不用水杯）把一首熟悉的歌完整哼一遍旋律。这是把练习迁移到真实唱歌的一步。'],
+    dailyNote:'约 10 分钟，音量始终在中等以下。喉咙出现紧、痛、发痒就停；嗓子嘶哑当天不练。'}
+};
+const KEY='breath-log-v1';
+const st={mode:'base',step:0,base:{s:null,z:null,a:null},baseId:null};
+const isToday=t=>new Date(t).toDateString()===new Date().toDateString();
+
+/* ---------- storage ---------- */
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return []}}
+function store(list){try{localStorage.setItem(KEY,JSON.stringify(list))}catch(e){}}
+function upsert(entry){const l=load();const i=l.findIndex(x=>x.id===entry.id);if(i>=0)l[i]=entry;else l.push(entry);store(l)}
+function getPref(k,d){try{const v=localStorage.getItem(KEY+'-'+k);return v==null?d:JSON.parse(v)}catch(e){return d}}
+function setPref(k,v){try{localStorage.setItem(KEY+'-'+k,JSON.stringify(v))}catch(e){}}
+/* baseline in progress survives a reload for 12 hours */
+function saveBasePending(){setPref('basePending',{t:Date.now(),base:st.base,step:st.step,id:st.baseId})}
+(function(){const bp=getPref('basePending',null);
+  if(bp&&bp.base&&Date.now()-bp.t<12*3600e3){st.base=bp.base;st.step=bp.step||0;st.baseId=bp.id||null}})();
+
+/* ---------- analysis ---------- */
+function rmsDb(f){let s=0;for(let i=0;i<f.length;i++)s+=f[i]*f[i];return 20*Math.log10(Math.sqrt(s/f.length)+1e-9)}
+function median(a){const b=[...a].sort((x,y)=>x-y);return b.length?b[b.length>>1]:-90}
+function pct(a,p){const b=[...a].sort((x,y)=>x-y);return b.length?b[Math.min(b.length-1,Math.floor(p*b.length))]:0}
+const dec=new Float32Array(1024),nsdf=new Float32Array(512);
+function pitchMidi(f,sr){
+  const len=Math.min(1024,f.length>>1);
+  for(let i=0;i<len;i++)dec[i]=(f[2*i]+f[2*i+1])*.5;
+  const sr2=sr/2,minL=Math.floor(sr2/1000),maxL=Math.min(Math.ceil(sr2/65),len>>1),W=len-maxL;
+  for(let t=minL;t<=maxL;t++){let a=0,m=0;for(let i=0;i<W;i++){const x=dec[i],y=dec[i+t];a+=x*y;m+=x*x+y*y}nsdf[t]=m>0?2*a/m:0}
+  let started=false,peaks=[],cur=-1,curV=-1;
+  for(let t=minL;t<=maxL;t++){const n=nsdf[t];
+    if(!started){if(n<0)started=true;continue}
+    if(n>0){if(n>curV){curV=n;cur=t}}else if(cur>0){peaks.push(cur);cur=-1;curV=-1}}
+  if(cur>0)peaks.push(cur);
+  if(!peaks.length)return null;
+  let mx=0;for(const p of peaks)mx=Math.max(mx,nsdf[p]);
+  const p=peaks.find(q=>nsdf[q]>=.88*mx);
+  if(nsdf[p]<.6)return null;
+  const a=nsdf[p-1]||nsdf[p],b=nsdf[p],c=nsdf[p+1]||nsdf[p],d=a-2*b+c;
+  const tp=p+(d?.5*(a-c)/d:0),hz=sr2/tp;
+  if(hz<65||hz>1000)return null;
+  return 69+12*Math.log2(hz/440);
+}
+const CAL=600,PREP=3000;
+function makeTake(sig,sr){return{sig,sr,state:'calibrating',cal:[],floor:null,thr:null,on:0,firstOn:0,start:0,lastAbove:0,pts:[],liveDb:-90,liveMidi:null,endGap:sig==='pitch'?700:350,res:null}}
+function setFloor(tk,fl){tk.floor=fl;tk.thr=Math.max(fl+10,-62);tk.state='waiting'}
+function stepTake(tk,f,t){
+  const db=rmsDb(f);tk.liveDb=db;
+  if(tk.state==='calibrating'){tk.cal.push(db);if(t>=CAL){tk.state='prep';return 'prep'}return null}
+  if(tk.state==='prep'){if(t>=PREP){setFloor(tk,median(tk.cal));return 'ready'}return null}
+  if(tk.state==='waiting'){
+    if(db>tk.thr){if(!tk.on)tk.firstOn=t;if(++tk.on>=4){tk.state='active';tk.start=tk.firstOn;tk.lastAbove=t;return 'onset'}}else tk.on=0;
+    return null}
+  if(tk.state==='active'){
+    const rel=t-tk.start,midi=tk.sig==='pitch'&&db>tk.thr?pitchMidi(f,tk.sr):null;
+    tk.liveMidi=midi;tk.pts.push({t:rel,db,midi});
+    if(db>tk.thr)tk.lastAbove=t;
+    if(t-tk.lastAbove>tk.endGap||rel>120000){finish(tk);return 'done'}
+  }
+  return null}
+function finish(tk){
+  const durMs=Math.max(0,tk.lastAbove-tk.start);
+  tk.pts=tk.pts.filter(p=>p.t<=durMs);tk.state='done';
+  const dur=durMs/1000;
+  if(tk.sig==='level'){
+    let core=tk.pts.filter(p=>p.t>=500&&p.t<=durMs-500);if(core.length<10)core=tk.pts;
+    const m=core.reduce((s,p)=>s+p.db,0)/(core.length||1);
+    const sd=Math.sqrt(core.reduce((s,p)=>s+(p.db-m)**2,0)/(core.length||1));
+    const n=core.length,third=Math.max(1,Math.floor(n/3));
+    const avg=a=>a.reduce((s,p)=>s+p.db,0)/(a.length||1);
+    const drop=n>=15?avg(core.slice(0,third))-avg(core.slice(n-third)):0;
+    tk.res={dur,std:sd,drop};
+  }else{
+    const v=tk.pts.filter(p=>p.midi!=null);
+    let breaks=0,last=null,lastMidi=null;const at=[];
+    for(const p of tk.pts){if(p.midi!=null){if(last!==null&&p.t-last>=120){breaks++;at.push(lastMidi)}last=p.t;lastMidi=p.midi}}
+    const ms=v.map(p=>p.midi),lo=v.length>4?pct(ms,.05):null,hi=v.length>4?pct(ms,.95):null;
+    tk.res={dur,span:lo!=null?hi-lo:0,breaks,breakAt:at,lo,hi,weak:v.length<=4};
+  }
+}
+
+/* ---------- training advice ---------- */
+function adviceBase(b){
+  const r=b.s/b.z,out=[];
+  if(r>1.4)out.push({h:'声带闭合不足：唱歌时有气从声带缝隙漏走。',why:'z 比 s 短很多。气息再长，漏掉的气也变不成声音，所以先练闭合，暂缓加长气息。',
+    m:['<b>吸管发声</b>：细吸管发 u，从低滑到高再滑回，每天 3 组，每组 5 遍。','<b>哼鸣 m</b>：舒适音高轻哼 5 秒，感受嘴唇和鼻腔发麻，重复 10 次。','<b>清晰起音</b>：唱短促的 a-a-a-a-a 五连音，每个音开头不带前置的气声，3 组。'],
+    next:'一周后复测。如果嗓子嘶哑超过两周，去看耳鼻喉科。'});
+  else if(r<0.8)out.push({h:'发 s 时出气太快，气息分配有问题。',why:'z 比 s 长很多，说明声带闭合没问题，是嘶声时没控制住气流速度。',
+    m:['<b>慢速嘶声</b>：同样一口气，把 s 的音量和出气速度都降到一半，目标是比 z 更长。','<b>阶梯练习</b>：吸 4 拍，嘶 8 拍，每天加 1 拍。步行模式就是这个练法。'],
+    next:'练一周后复测，s 应该追上 z。'});
+  else if(r>1.2)out.push({h:'闭合处在临界区，有轻微漏气。',why:'s/z 比值在 1.2 到 1.4 之间。',
+    m:['<b>吸管发声和唇颤音加量</b>：每天各 3 组，这两个练习都在帮声带用更少的气振动。','<b>哼鸣 m</b>：每天 10 次，每次 5 秒。'],next:'一周后复测，目标降到 1.2 以内。'});
+  else out.push({h:'声带闭合良好。',why:'s/z 比值在 1.2 以内，问题不在漏气，重点放在气息控制上。',m:[],next:''});
+  if(r<=1.4){
+    if(b.s<15)out.push({h:'气息储备和控制都偏弱。',why:'嘶声不到 15 秒。',m:['<b>平躺练习</b>：平躺，书放在肚子上，吸气时书升起，嘶声时让书慢慢下降，每天 5 分钟。','<b>持续嘶声</b>：每天 2 组，每组 3 遍，目标每次比上次多 1 秒。','<b>步行训练</b>：从呼气 8 步起步。'],next:'目标：两周内嘶声到 20 秒。'});
+    else if(b.s<25)out.push({h:'气息基础可以，继续加长。',why:'嘶声 '+b.s.toFixed(0)+' 秒，目标 25 秒。',m:['<b>持续嘶声</b>：每天 1 到 2 组，每组 3 遍，每次比上次多 2 秒。','<b>步行训练</b>：呼气 12 到 16 步，感觉轻松就加。'],next:'嘶声满 25 秒后，重点转到滑音连续性。'});
+    else out.push({h:'气息长度已经达标。',why:'嘶声 25 秒以上。',m:['<b>转练平稳度</b>：嘶声模式里把波动压到 ±2 分贝以内。','<b>转练滑音</b>：唇颤音满一个八度且不中断。'],next:'三项判据都达标后进入第二阶段：共鸣与元音。'});
+  }
+  return out;
+}
+function adviceHiss(r){
+  const out=[];
+  if(r.dur<15)out.push({h:'气用得太快。',why:'这一遍不到 15 秒。常见原因是一开始出气太猛，或者呼气时下肋马上收回。',
+    m:['<b>先降音量</b>：嘶声音量降到刚好能听见，出气越细越长。','<b>手放下肋</b>：两手叉在腰侧，嘶声时手不能感觉到肋骨往回收。','<b>步行训练</b>：吸 4 步，呼 8 步起步，轻松了再加。'],next:'目标：每次比上次多 1 到 2 秒。'});
+  if(r.std>3)out.push({h:'气流忽强忽弱。',why:'音量波动 ±'+r.std.toFixed(1)+' 分贝，超过 3 分贝。',
+    m:['<b>对手心嘶声</b>：手放在嘴前 10 厘米，感受气流始终一样凉、一样强。','<b>脉冲嘶声</b>：s s s 短促断开，每组 10 下，3 组，练腹部控制的精度。','<b>降速</b>：先追求平稳，长度暂时放一边。'],next:'目标：波动降到 ±2 分贝以内。'});
+  if(r.drop>4)out.push({h:'后段音量塌陷。',why:'最后三分之一比开头弱了 '+r.drop.toFixed(0)+' 分贝，说明气快用完时下肋提前收回了。',
+    m:['<b>留余量</b>：练习时在还剩两成气时就结束，不要每次都挤到底。','<b>后半段专注</b>：时长过半后，刻意保持腰侧张开。'],next:'塌陷消失后再追求长度。'});
+  if(!out.length){
+    if(r.dur>=25&&r.std<=2)out.push({h:'这一遍达标：够长，也够稳。',why:'时长 25 秒以上，波动在 ±2 分贝以内。',m:['<b>升级</b>：同样的标准改发 z，再改成唱持续的 a。','<b>保持</b>：嘶声每天 1 组维持即可，把时间转给滑音练习。'],next:''});
+    else out.push({h:'稳定度合格，继续加长。',why:'波动在可接受范围，时长还没到 25 秒。',m:['<b>持续嘶声</b>：每组 3 遍，每次比上次多 2 秒。','<b>步行训练</b>：呼气步数每次加 4 步，以轻松为准。'],next:'目标：25 秒以上，波动 ±2 分贝以内。'});
+  }
+  return out;
+}
+function adviceSlide(r){
+  if(r.weak)return [{h:'没有识别到清楚的音高。',why:'可能是唇颤音没振动起来，或者离手机太远。',m:['<b>唇颤做不起来</b>：用手指轻推两颊，嘴唇放松，气流稍大一点。','<b>换吸管</b>：含一根细吸管发 u，更容易稳定。','<b>距离</b>：手机放在嘴前 20 厘米。'],next:''}];
+  const out=[];
+  if(r.breaks>0){
+    const cnt={};r.breakAt.forEach(m=>{const n=noteName(m);cnt[n]=(cnt[n]||0)+1});
+    const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0];
+    out.push({h:'断在 '+top+' 附近，这是你的换声点。',why:'声音在这里断开，通常是胸声到头声转换时喉部突然收紧或气流突然加大。',
+      m:['<b>小范围往返</b>：在 '+top+' 上下 3 个半音之间来回慢滑，10 遍。','<b>越过时变轻</b>：接近 '+top+' 时主动把音量减半，让声带自己过渡。','<b>先吸管后唇颤</b>：吸管能连续滑过去之后，再换唇颤音。'],next:'目标：整段滑音 0 中断。'});
+  }
+  if(r.span<11.5)out.push({h:'音域跨度不到一个八度。',why:'这一遍跨度 '+Math.round(r.span)+' 个半音。',
+    m:['<b>逐步扩展</b>：每次往上多滑一个半音，到不舒服就停，不要硬顶。','<b>高处变轻</b>：越往上，音量越小，气流越细。'],next:'目标：12 个半音以上。'});
+  if(!out.length)out.push({h:'连续满八度，这一项达标。',why:'跨度 '+Math.round(r.span)+' 个半音，没有中断。',m:['<b>升级</b>：用唇颤音唱五度音阶 1-2-3-4-5-4-3-2-1，每次升半音。','<b>再升级</b>：扩展到八度琶音 1-3-5-8-5-3-1。'],next:''});
+  return out;
+}
+function renderAdvice(list){
+  const el=$('#advice');
+  if(!list){el.innerHTML='<p class="empty">完成一次练习后，这里会给出针对你这一遍结果的判断和练法。</p>';return}
+  el.innerHTML=list.map(a=>'<div class="advice"><h3>'+a.h+'</h3>'+(a.why?'<p class="why">'+a.why+'</p>':'')+(a.m.length?'<ol>'+a.m.map(x=>'<li>'+x+'</li>').join('')+'</ol>':'')+(a.next?'<p class="next">'+a.next+'</p>':'')+'</div>').join('');
+}
+
+/* ---------- audio ---------- */
+let ac=null,an=null,buf=null,take=null,raf=0,t0=0,wake=null;
+function AC(){return window.AudioContext||window.webkitAudioContext}
+function getAC(){ac=ac||new (AC())();return ac}
+async function ensureMic(){
+  if(an)return true;
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('no');
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    getAC();await ac.resume();
+    const src=ac.createMediaStreamSource(stream),hp=ac.createBiquadFilter();
+    hp.type='highpass';hp.frequency.value=80;
+    an=ac.createAnalyser();an.fftSize=2048;an.smoothingTimeConstant=0;
+    src.connect(hp);hp.connect(an);buf=new Float32Array(an.fftSize);
+    $('#fallback').hidden=true;return true;
+  }catch(e){if(!inFrame)$('#fallback').hidden=false;setStatus(inFrame?'这里不能用麦克风，请看上方说明':'麦克风不可用，可改用录音文件分析');return false}
+}
+async function lockScreen(){try{if(navigator.wakeLock)wake=await navigator.wakeLock.request('screen')}catch(e){}}
+function unlockScreen(){try{wake&&wake.release()}catch(e){}wake=null}
+const running=()=>take&&['calibrating','prep','waiting','active'].includes(take.state);
+
+async function start(){
+  if(!(await ensureMic()))return;
+  take=makeTake(MODE[st.mode].sig,ac.sampleRate);t0=performance.now();
+  setRunning(true);setStatus('保持安静',true);$('#bigNum').textContent='0.0';
+  lockScreen();loop();
+}
+function goWord(){return st.mode==='base'?STEPS[st.step].go:MODE[st.mode].go}
+function loop(){
+  an.getFloatTimeDomainData(buf);
+  const t=performance.now()-t0,ev=stepTake(take,buf,t);
+  if(take.state==='prep')setStatus('吸气 '+Math.max(1,Math.ceil((PREP-t)/800)),true);
+  if(ev==='ready')setStatus('现在'+goWord(),true);
+  if(ev==='onset')setStatus('计时中，保持平稳',true);
+  if(take.state==='waiting'&&t>PREP+15000){stop(true);setStatus('没有听到声音。靠近手机一些再试');return}
+  if(take.state==='active'){
+    $('#bigNum').textContent=((t-take.start)/1000).toFixed(1);
+    if(take.sig==='pitch')setStatus(take.liveMidi!=null?'当前音 '+noteName(take.liveMidi):'计时中',true);
+  }
+  draw();
+  if(ev==='done'){done();return}
+  raf=requestAnimationFrame(loop);
+}
+function stop(cancel){
+  cancelAnimationFrame(raf);
+  if(take&&take.state==='active'&&!cancel){take.lastAbove=performance.now()-t0;finish(take);done();return}
+  if(take&&take.state!=='done')take.state='cancel';
+  setRunning(false);unlockScreen();draw();
+  if(!cancel)setStatus(idleTip());
+}
+function done(){
+  setRunning(false);unlockScreen();draw();
+  const r=take.res;$('#bigNum').textContent=r.dur.toFixed(1);
+  if(r.dur<1){setStatus('这一遍太短，没有计入。再来一次');return}
+  if(st.mode==='base'){
+    st.base[STEPS[st.step].key]=r.dur;
+    const next=STEPS.findIndex(s=>st.base[s.key]==null);
+    const b=st.base;
+    if(b.s&&b.z&&b.a){
+      st.baseId=st.baseId||Date.now();
+      upsert({id:st.baseId,type:'base',time:Date.now(),s:b.s,z:b.z,a:b.a,ratio:b.s/b.z});
+      renderAdvice(adviceBase(b));
+    }
+    if(next>=0){st.step=next;setStatus('记下了。下一项：'+STEPS[next].name+'，按开始')}
+    else setStatus('三项完成，结果和建议在下方');
+    saveBasePending();renderSteps();
+  }else if(st.mode==='hiss'){
+    upsert({id:Date.now(),type:'hiss',time:Date.now(),dur:r.dur,std:r.std});
+    setStatus('已保存。建议在下方，休息 30 秒再来');renderAdvice(adviceHiss(r));
+  }else{
+    if(!r.weak)upsert({id:Date.now(),type:'slide',time:Date.now(),dur:r.dur,span:r.span,breaks:r.breaks,lo:r.lo,hi:r.hi});
+    setStatus(r.weak?'没有识别到清楚的音高，看下方建议':'已保存。建议在下方');renderAdvice(adviceSlide(r));
+  }
+  renderResults();renderToday();
+}
+
+/* file fallback: same analysis on a recording */
+$('#fileIn').addEventListener('change',async e=>{
+  const file=e.target.files[0];e.target.value='';if(!file)return;
+  if(st.mode==='walk'||st.mode==='log')setMode('base');
+  setStatus('正在分析录音…',true);
+  try{
+    getAC();
+    const audio=await new Promise((res,rej)=>{file.arrayBuffer().then(ab=>{const p=ac.decodeAudioData(ab,res,rej);if(p&&p.then)p.then(res,rej)},rej)});
+    const d=audio.getChannelData(0),sr=audio.sampleRate,N=2048,hop=Math.round(sr/60);
+    const dbs=[];for(let i=0;i+N<=d.length;i+=hop)dbs.push(rmsDb(d.subarray(i,i+N)));
+    let fl=pct(dbs,.05);const mid=pct(dbs,.5);if(mid-fl<15)fl=mid-25;
+    take=makeTake(MODE[st.mode].sig,sr);setFloor(take,fl);
+    let ended=false;
+    for(let i=0;i+N<=d.length;i+=hop){if(stepTake(take,d.subarray(i,i+N),i/sr*1000)==='done'){ended=true;break}}
+    if(!ended&&take.state==='active'){finish(take);ended=true}
+    if(!ended){setStatus('录音里没有检测到清楚的声音');draw();return}
+    done();
+  }catch(err){setStatus('这个文件无法读取。换成 m4a、mp3 或 wav 再试')}
+});
+
+/* ---------- drawing ---------- */
+let colors={};
+function readColors(){const cs=getComputedStyle(document.documentElement);
+  ['--accent','--accent-soft','--muted','--line','--fg','--fill'].forEach(k=>colors[k]=cs.getPropertyValue(k).trim())}
+readColors();
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{readColors();draw()})}catch(e){}
+new MutationObserver(()=>{readColors();draw()}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+const cv=$('#scope'),g=cv.getContext('2d');
+function sizeCanvas(){const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  const w=Math.round(r.width*dpr),h=Math.round(r.height*dpr);if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h}return{w:r.width,h:r.height,dpr}}
+function draw(){
+  if(st.mode==='walk'||st.mode==='log')return;
+  const {w,h,dpr}=sizeCanvas();if(!w)return;g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
+  const pad=10,iw=w-pad*2-10,ih=h-pad*2;
+  g.font='11px '+getComputedStyle(document.body).fontFamily;
+  const tk=take,pts=tk?tk.pts:[],lastT=pts.length?pts[pts.length-1].t:0,xs=Math.max(10000,lastT);
+  const X=t=>pad+t/xs*iw;
+  if(tk&&running()){
+    const lv=Math.max(0,Math.min(1,(tk.liveDb+80)/70));
+    g.fillStyle=colors['--fill'];g.fillRect(w-8,pad,4,ih);
+    g.fillStyle=colors['--accent'];g.fillRect(w-8,pad+ih*(1-lv),4,ih*lv);
+  }
+  if(MODE[st.mode].sig==='level'){
+    const lo=(tk&&tk.floor!=null?tk.floor:-70)-6,hi=lo+56,Y=db=>pad+ih*(1-(Math.max(lo,Math.min(hi,db))-lo)/(hi-lo));
+    if(tk&&tk.thr!=null){g.strokeStyle=colors['--line'];g.setLineDash([4,4]);g.lineWidth=1;
+      g.beginPath();g.moveTo(pad,Y(tk.thr));g.lineTo(pad+iw,Y(tk.thr));g.stroke();g.setLineDash([])}
+    if(pts.length>1){
+      g.beginPath();g.moveTo(X(pts[0].t),pad+ih);pts.forEach(p=>g.lineTo(X(p.t),Y(p.db)));
+      g.lineTo(X(lastT),pad+ih);g.closePath();g.fillStyle=colors['--accent-soft'];g.fill();
+      g.beginPath();pts.forEach((p,i)=>i?g.lineTo(X(p.t),Y(p.db)):g.moveTo(X(p.t),Y(p.db)));
+      g.strokeStyle=colors['--accent'];g.lineWidth=2;g.lineJoin='round';g.stroke();
+    }else{g.fillStyle=colors['--muted'];g.textAlign='center';g.fillText('音量曲线会显示在这里，越平越好',w/2,h/2+4)}
+    timeTicks(xs,X,h);
+  }else{
+    const v=pts.filter(p=>p.midi!=null);
+    let lo=45,hi=69;if(v.length){lo=Math.min(...v.map(p=>p.midi))-3;hi=Math.max(...v.map(p=>p.midi))+3;if(hi-lo<14){const c=(hi+lo)/2;lo=c-7;hi=c+7}}
+    const Y=m=>pad+ih*(1-(m-lo)/(hi-lo));
+    g.textAlign='left';
+    for(let m=Math.ceil(lo/12)*12;m<=hi;m+=12){g.strokeStyle=colors['--line'];g.lineWidth=1;g.beginPath();g.moveTo(pad+22,Y(m));g.lineTo(pad+iw,Y(m));g.stroke();
+      g.fillStyle=colors['--muted'];g.fillText(noteName(m),pad,Y(m)+4)}
+    if(v.length>1){g.strokeStyle=colors['--accent'];g.lineWidth=2.5;g.lineCap='round';g.lineJoin='round';g.beginPath();let prev=null;
+      for(const p of v){if(prev&&p.t-prev.t<120)g.lineTo(X(p.t),Y(p.midi));else g.moveTo(X(p.t),Y(p.midi));prev=p}g.stroke()}
+    else{g.fillStyle=colors['--muted'];g.textAlign='center';g.fillText('音高曲线会显示在这里，越连续越好',w/2,h/2+4)}
+    timeTicks(xs,X,h);
+  }
+}
+function timeTicks(xs,X,h){const step=xs>40000?10000:5000;g.fillStyle=colors['--muted'];g.textAlign='center';
+  for(let t=step;t<xs;t+=step)g.fillText(t/1000+'s',X(t),h-4)}
+window.addEventListener('resize',draw);
+
+/* ---------- walking mode ---------- */
+const W={ex:getPref('ex',12),spm:getPref('spm',110),dur:getPref('dur',10),how:getPref('how','m'),tick:getPref('tick',1),
+  on:false,master:null,startAt:0,plan:null,raf:0};
+const HOW={s:'嘶声',m:'哼鸣',r:'唇颤'};
+const IN=4,FREE=8;
+function renderWalkSettings(){
+  $('#exOut').textContent=W.ex+' 步';$('#spmOut').textContent=W.spm+' 步/分';
+  [['#durChips','dur'],['#howChips','how'],['#tickChips','tick']].forEach(([sel,k])=>
+    document.querySelectorAll(sel+' button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v)===String(W[k])?'true':'false')));
+  if(!W.on){const sec=(W.ex*60/W.spm).toFixed(0),tm=load().filter(e=>e.type==='walk'&&isToday(e.time)).reduce((s,e)=>s+e.min,0);
+    $('#wStatus').textContent='每次呼气 '+W.ex+' 步，约 '+sec+' 秒。'+(tm?'今天已练 '+Math.round(tm)+' 分钟。':'')+'按开始';}
+}
+function adj(k,d,lo,hi){if(W.on)return;W[k]=Math.max(lo,Math.min(hi,W[k]+d));setPref(k,W[k]);renderWalkSettings()}
+$('#exMinus').onclick=()=>adj('ex',-4,8,40);$('#exPlus').onclick=()=>adj('ex',4,8,40);
+$('#spmMinus').onclick=()=>adj('spm',-5,80,140);$('#spmPlus').onclick=()=>adj('spm',5,80,140);
+[['#durChips','dur',Number],['#howChips','how',String],['#tickChips','tick',Number]].forEach(([sel,k,cast])=>
+  document.querySelectorAll(sel+' button').forEach(b=>b.onclick=()=>{if(W.on)return;W[k]=cast(b.dataset.v);setPref(k,W[k]);renderWalkSettings()}));
+
+function tone(at,freq,len,vol){const o=ac.createOscillator(),gn=ac.createGain();o.type='sine';o.frequency.value=freq;
+  gn.gain.setValueAtTime(0,at);gn.gain.linearRampToValueAtTime(vol,at+.01);gn.gain.exponentialRampToValueAtTime(.0001,at+len);
+  o.connect(gn);gn.connect(W.master);o.start(at);o.stop(at+len+.02)}
+async function walkStart(){
+  getAC();try{await ac.resume()}catch(e){}
+  W.master=ac.createGain();W.master.gain.value=1;W.master.connect(ac.destination);
+  const sd=60/W.spm,cyc=IN+W.ex+FREE,nCyc=Math.max(1,Math.floor(W.dur*60/(cyc*sd)));
+  W.plan={sd,cyc,nCyc,ex:W.ex,total:nCyc*cyc};W.startAt=ac.currentTime+1.2;
+  for(let c=0;c<nCyc;c++){const base=W.startAt+c*cyc*sd;
+    tone(base,660,.12,.35);tone(base+.14,880,.16,.35);
+    tone(base+IN*sd,440,.45,.4);
+    tone(base+(IN+W.ex)*sd,523,.3,.22);
+    if(W.tick)for(let s=0;s<cyc;s++)if(s!==0&&s!==IN&&s!==IN+W.ex)tone(base+s*sd,1200,.03,.06);
+  }
+  tone(W.startAt+nCyc*cyc*sd,523,.25,.3);tone(W.startAt+nCyc*cyc*sd+.3,784,.5,.3);
+  W.on=true;$('#wBtn').textContent='停止';$('#wBtn').classList.add('stop');$('#wResult').hidden=true;
+  lockScreen();walkLoop();
+}
+function walkLoop(){
+  const p=W.plan,el=(ac.currentTime-W.startAt)/p.sd;
+  if(el<0){$('#wPhase').textContent='准备';$('#wPhase').className='phase';$('#wNum').textContent=Math.ceil(-el*p.sd);$('#wStatus').textContent='跟着脚步，马上开始';}
+  else if(el>=p.total){walkEnd(true);return}
+  else{const step=Math.floor(el),c=Math.floor(step/p.cyc),s=step%p.cyc;
+    let ph,left;
+    if(s<IN){ph='吸气';left=IN-s}else if(s<IN+p.ex){ph=HOW[W.how]+'呼气';left=IN+p.ex-s}else{ph='自由呼吸';left=p.cyc-s}
+    $('#wPhase').textContent=ph;$('#wPhase').className='phase'+(s<IN?' in':'');
+    $('#wNum').textContent=left;
+    const remain=Math.ceil((p.total-el)*p.sd/60);
+    $('#wStatus').textContent='第 '+(c+1)+' / '+p.nCyc+' 组 · 还剩约 '+remain+' 分钟';
+    W.done=c;
+  }
+  W.raf=requestAnimationFrame(walkLoop);
+}
+function walkEnd(complete){
+  cancelAnimationFrame(W.raf);W.on=false;unlockScreen();
+  try{W.master.disconnect()}catch(e){}
+  $('#wBtn').textContent='开始';$('#wBtn').classList.remove('stop');
+  const p=W.plan,cycles=complete?p.nCyc:(W.done||0);
+  $('#wPhase').textContent=complete?'完成':'已停止';$('#wPhase').className='phase';$('#wNum').textContent=cycles;
+  document.querySelector('#walkView .big small').textContent='组';
+  if(cycles<1){$('#wStatus').textContent='不到一组，没有记录';return}
+  const min=Math.round(cycles*p.cyc*p.sd/60*10)/10,id=Date.now();
+  upsert({id,type:'walk',time:id,min,cycles,ex:p.ex,how:W.how,feel:null});
+  $('#wStatus').textContent='完成 '+cycles+' 组，约 '+min+' 分钟';
+  const r=$('#wResult');r.hidden=false;
+  r.innerHTML='<div class="advice"><h3>这一级（呼气 '+p.ex+' 步）感觉怎样？</h3><p class="why">按真实感受选，下一次的呼气步数会据此调整。</p>'+
+    '<div class="btns fill"><button class="btn plain" data-f="easy">轻松</button><button class="btn plain" data-f="ok">刚好</button><button class="btn plain" data-f="hard">吃力</button></div></div>';
+  r.querySelectorAll('button').forEach(b=>b.onclick=()=>walkFeel(id,b.dataset.f,p.ex));
+}
+function walkFeel(id,f,ex){
+  const l=load(),e=l.find(x=>x.id===id);if(e){e.feel=f;store(l)}
+  let nx=ex,a;
+  if(f==='easy'){nx=Math.min(40,ex+4);a={h:'下次呼气加到 '+nx+' 步。',why:'前提是这一次全程下肋没有往回收。如果收了，这一级还不算真正轻松，先保持 '+ex+' 步。',m:['<b>升级的标准</b>：呼气最后两步仍然匀速，没有憋气感。','<b>室内校准</b>：每周用嘶声模式测两三次，看室内时长是否跟着涨。'],next:''};}
+  else if(f==='ok'){a={h:'保持 '+ex+' 步，再练 3 次后加量。',why:'刚好是最有效的训练强度，足够刺激，又不会让喉咙代偿。',m:['<b>本级重点</b>：呼气全程保持下肋张开，出气均匀。','<b>换方式</b>：同样步数，嘶声、哼鸣、唇颤轮换着练。'],next:''};}
+  else{nx=Math.max(8,ex-4);a={h:'下次降到 '+nx+' 步。',why:'吃力说明在硬撑。硬撑时喉咙会收紧来帮忙，练出来的是错误习惯。',m:['<b>先找轻松感</b>：在 '+nx+' 步练到轻松，再往上加。','<b>检查吸气</b>：吸气时肩膀不要抬，吸到腰侧和后背。'],next:''};}
+  W.ex=nx;setPref('ex',nx);renderWalkSettings();
+  $('#wResult').innerHTML='<div class="advice"><h3>'+a.h+'</h3><p class="why">'+a.why+'</p><ol>'+a.m.map(x=>'<li>'+x+'</li>').join('')+'</ol></div>';
+}
+$('#wBtn').onclick=()=>{if(W.on)walkEnd(false);else{document.querySelector('#walkView .big small').textContent='步';walkStart()}};
+
+/* ---------- UI ---------- */
+function noteName(m){const n=['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'],r=Math.round(m);return n[((r%12)+12)%12]+(Math.floor(r/12)-1)}
+function setStatus(t,live){const s=$('#status');s.textContent=t;s.classList.toggle('live',!!live)}
+function setRunning(on){const b=$('#mainBtn');b.textContent=on?'停止':'开始';b.classList.toggle('stop',on)}
+function idleTip(){return st.mode==='base'?STEPS[st.step].tip:MODE[st.mode].guide[1].split('。')[0]}
+function tag(cls,t){return '<span class="tag '+cls+'">'+t+'</span>'}
+function fx(n,d=1){return n==null?'—':n.toFixed(d)}
+function row(k,v,extra){return '<div class="row"><div class="k">'+k+'</div><div class="v">'+v+(extra||'')+'</div></div>'}
+function ratioTag(r){return r==null?'':r<=1.2?tag('good','闭合良好'):r<=1.4?tag('warn','临界'):tag('bad','有漏气')}
+function stdTag(s){return s==null?'':s<=1.5?tag('good','很稳'):s<=3?tag('warn','一般'):tag('bad','不稳')}
+
+function renderSteps(){
+  const box=$('#steps');
+  if(st.mode!=='base'){box.innerHTML='';box.hidden=true;return}
+  box.hidden=false;
+  box.innerHTML=STEPS.map((s,i)=>'<button class="pill'+(i===st.step?' on':'')+'" data-i="'+i+'">'+s.name+'<span>'+(st.base[s.key]!=null?st.base[s.key].toFixed(1)+'s':'—')+'</span></button>').join('');
+  if(STEPS.some(s=>st.base[s.key]!=null))box.innerHTML+='<button class="link" id="baseReset">重新开始</button>';
+  box.querySelectorAll('.pill').forEach(p=>p.onclick=()=>{if(running())return;st.step=+p.dataset.i;saveBasePending();renderSteps();setStatus(idleTip())});
+  const rs=$('#baseReset');if(rs)rs.onclick=()=>{if(running())return;st.base={s:null,z:null,a:null};st.step=0;st.baseId=null;saveBasePending();
+    renderSteps();renderResults();renderAdvice(null);setStatus('已清空本次测试。'+idleTip())};
+}
+/* today's rep counter for hiss and slide */
+function renderToday(){
+  const el=$('#today'),G={hiss:3,slide:5}[st.mode];
+  if(!G){el.hidden=true;return}
+  const n=load().filter(e=>e.type===st.mode&&isToday(e.time)).length,inG=n%G,filled=n&&!inG?G:inG;
+  el.hidden=false;
+  el.innerHTML='<span>今天 '+n+' 遍 · 完成 '+Math.floor(n/G)+' 组</span><span class="dots" aria-label="本组 '+filled+' / '+G+'">'+Array.from({length:G},(_,i)=>'<i'+(i<filled?' class="on"':'')+'></i>').join('')+'</span>';
+}
+function renderResults(){
+  const el=$('#results'),r=take&&take.state==='done'?take.res:null;
+  if(st.mode==='base'){const b=st.base,ratio=b.s&&b.z?b.s/b.z:null;
+    el.innerHTML=row('<b>嘶声 s</b>',fx(b.s)+'<small>秒</small>')+row('<b>滋声 z</b>',fx(b.z)+'<small>秒</small>')
+      +row('<b>元音 a</b>目标 25 秒以上',fx(b.a)+'<small>秒</small>',b.a==null?'':b.a>=25?tag('good','达标'):tag('warn','未到'))
+      +row('<b>s/z 比值</b>目标 1.2 以内',fx(ratio,2),ratioTag(ratio));
+  }else if(st.mode==='hiss'){
+    el.innerHTML=row('<b>时长</b>目标 25 秒以上',fx(r&&r.dur)+'<small>秒</small>',r?(r.dur>=25?tag('good','达标'):tag('warn','未到')):'')
+      +row('<b>波动</b>目标 ±2 分贝以内',(r?'±'+r.std.toFixed(1):'—')+'<small>分贝</small>',r?stdTag(r.std):'');
+  }else{
+    const ok=r&&!r.weak;
+    el.innerHTML=row('<b>音域跨度</b>目标 12 个半音',(ok?Math.round(r.span):'—')+'<small>半音</small>',ok?(r.span>=11.5?tag('good','满八度'):tag('warn','未满')):'')
+      +row('<b>中断</b>目标 0 次',(ok?r.breaks:'—')+'<small>次</small>',ok?(r.breaks===0?tag('good','连续'):tag('bad','有中断')):'')
+      +row('<b>最低到最高</b>',ok?noteName(r.lo)+' – '+noteName(r.hi):'—');
+  }
+}
+function spark(vals){
+  if(vals.length<2)return '<svg class="spark" aria-hidden="true"></svg>';
+  const mn=Math.min(...vals),mx=Math.max(...vals),rg=mx-mn||1;
+  const pts=vals.map((v,i)=>(i/(vals.length-1)*70+1).toFixed(1)+','+(22-(v-mn)/rg*20).toFixed(1)).join(' ');
+  const [lx,ly]=pts.split(' ').pop().split(',');
+  return '<svg class="spark" viewBox="0 0 72 24" aria-hidden="true"><polyline points="'+pts+'" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><circle cx="'+lx+'" cy="'+ly+'" r="2.4" fill="var(--accent)"/></svg>';
+}
+function renderLog(){
+  const l=load().sort((a,b)=>a.time-b.time);
+  const H=l.filter(e=>e.type==='hiss'),B=l.filter(e=>e.type==='base'),S=l.filter(e=>e.type==='slide'),Wk=l.filter(e=>e.type==='walk');
+  const h=H[H.length-1],b=B[B.length-1],s=S[S.length-1];
+  const p1=h&&h.dur>=25&&h.std<=2,p2=b&&b.ratio<=1.2,p3=s&&s.span>=11.5&&s.breaks===0;
+  const st_=(x,y)=>!y?tag('','未测'):x?tag('good','达标'):tag('warn','未到');
+  const days=b?Math.floor((Date.now()-b.time)/864e5):null;
+  const wkMin=Wk.filter(e=>Date.now()-e.time<7*864e5).reduce((s,e)=>s+e.min,0);
+  const lastW=Wk[Wk.length-1];
+  $('#criteria').innerHTML=
+    row('<b>嘶声平稳 25 秒</b>'+(h?h.dur.toFixed(1)+' 秒 · ±'+h.std.toFixed(1)+' 分贝':'还没有记录'),spark(H.slice(-14).map(e=>e.dur)),st_(p1,h))
+   +row('<b>s/z 比值 1.2 以内</b>'+(b?b.ratio.toFixed(2)+' · '+(days===0?'今天测':days+' 天前测')+(days>=7?'，该复测了':''):'还没有记录'),spark(B.slice(-14).map(e=>e.ratio)),st_(p2,b))
+   +row('<b>滑音满八度不中断</b>'+(s?Math.round(s.span)+' 半音 · 中断 '+s.breaks+' 次':'还没有记录'),spark(S.slice(-14).map(e=>e.span)),st_(p3,s))
+   +row('<b>步行训练</b>'+(lastW?'近 7 天 '+Math.round(wkMin)+' 分钟 · 当前呼气 '+W.ex+' 步':'还没有记录'),spark(Wk.slice(-14).map(e=>e.ex)),'');
+  $('#banner').innerHTML=p1&&p2&&p3?'<div class="banner">三项都已达标，可以进入第二阶段：共鸣与元音。</div>':'';
+  const list=[...l].reverse().slice(0,60);
+  const fmt=t=>{const d=new Date(t);return (d.getMonth()+1)+'月'+d.getDate()+'日 '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+  const feel={easy:'轻松',ok:'刚好',hard:'吃力'};
+  $('#history').innerHTML=list.length?list.map(e=>{
+    if(e.type==='base')return row('<b>基线</b>'+fmt(e.time),'s/z '+e.ratio.toFixed(2)+'<small>a '+e.a.toFixed(0)+'s</small>');
+    if(e.type==='hiss')return row('<b>嘶声</b>'+fmt(e.time),e.dur.toFixed(1)+'s<small>±'+e.std.toFixed(1)+'dB</small>');
+    if(e.type==='walk')return row('<b>步行</b>'+fmt(e.time),e.min+'分<small>呼 '+e.ex+' 步'+(e.feel?' · '+feel[e.feel]:'')+'</small>');
+    return row('<b>滑音</b>'+fmt(e.time),Math.round(e.span)+'半音<small>断 '+e.breaks+'</small>');
+  }).join(''):'<p class="empty">还没有记录。完成一次练习后，结果会出现在这里。</p>';
+  renderClear(false,list.length);
+}
+function renderClear(confirming,n){
+  const box=$('#clearBox');if(!n){box.innerHTML='';return}
+  box.innerHTML=confirming?'<button class="btn" id="cYes" style="background:var(--bad)">确认清空</button><button class="btn plain" id="cNo">取消</button>':'<button class="btn danger" id="cAsk">清空记录</button>';
+  if(confirming){$('#cYes').onclick=()=>{store([]);renderLog()};$('#cNo').onclick=()=>renderClear(false,n)}
+  else $('#cAsk').onclick=()=>renderClear(true,n);
+}
+function setMode(m){
+  if(running())stop(true);
+  if(W.on&&m!=='walk')walkEnd(false);
+  st.mode=m;
+  document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-selected',b.dataset.mode===m?'true':'false'));
+  $('#practice').hidden=m==='log'||m==='walk';$('#logView').hidden=m!=='log';$('#walkView').hidden=m!=='walk';
+  setPref('mode',m);
+  if(m==='log'){renderLog();return}
+  if(m==='walk'){renderWalkSettings();return}
+  $('#embedNote').hidden=!inFrame;
+  take=null;$('#modeTitle').textContent=MODE[m].title;$('#kindTag').textContent=MODE[m].kind;
+  $('#guide').innerHTML=MODE[m].guide.map(x=>'<li>'+x+'</li>').join('');
+  const hasDaily=!!MODE[m].daily;$('#dailyH').hidden=!hasDaily;$('#dailyCard').hidden=!hasDaily;
+  if(hasDaily){$('#daily').innerHTML=MODE[m].daily.map(x=>'<li>'+x+'</li>').join('');$('#dailyNote').textContent=MODE[m].dailyNote}
+  $('#bigNum').textContent='0.0';setStatus(idleTip());renderSteps();renderResults();renderToday();
+  renderAdvice(m==='base'&&st.base.s&&st.base.z&&st.base.a?adviceBase(st.base):null);
+  requestAnimationFrame(draw);
+}
+/* ---------- backup ---------- */
+function bk(t){$('#bkStatus').textContent=t}
+function backupText(){return JSON.stringify({app:'breath-trainer',v:1,exported:Date.now(),log:load(),
+  prefs:{ex:W.ex,spm:W.spm,dur:W.dur,how:W.how,tick:W.tick}})}
+function backupName(){const d=new Date();return 'breath-backup-'+d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'.json'}
+$('#expBtn').onclick=async()=>{
+  const txt=backupText(),n=load().length;
+  if(!n){bk('还没有记录可以导出');return}
+  if(!inFrame){
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));a.download=backupName();
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    bk('已导出 '+n+' 条记录。文件在手机的下载文件夹里');return}
+  let dl=null;try{dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null}catch(e){}
+  if(!dl){bk('这里不能保存文件。请用复制备份文本，粘贴到备忘录里保存');return}
+  try{await dl.save({filename:backupName(),data:txt});bk('已导出 '+n+' 条记录')}
+  catch(e){bk(e&&e.code==='declined'?'已取消导出':'导出失败。请改用复制备份文本')}
+};
+$('#copyBtn').onclick=()=>{
+  const txt=backupText();
+  const fallback=()=>{const ta=$('#impText');ta.value=txt;ta.closest('details').open=true;ta.focus();ta.select();bk('无法直接复制。文本已放进下方输入框并选中，手动复制即可')};
+  try{navigator.clipboard.writeText(txt).then(()=>bk('已复制 '+load().length+' 条记录。粘贴到备忘录或发给自己保存'),fallback)}catch(e){fallback()}
+};
+function importText(txt){
+  let data;try{data=JSON.parse(txt)}catch(e){bk('这段内容不是有效的备份');return}
+  const arr=Array.isArray(data)?data:data&&Array.isArray(data.log)?data.log:null;
+  if(!arr){bk('这段内容不是有效的备份');return}
+  const ok=arr.filter(e=>e&&typeof e.id==='number'&&typeof e.time==='number'&&['base','hiss','slide','walk'].includes(e.type));
+  const l=load(),ids=new Set(l.map(e=>e.id));let added=0;
+  ok.forEach(e=>{if(!ids.has(e.id)){l.push(e);ids.add(e.id);added++}});
+  store(l);
+  if(data.prefs&&!W.on){['ex','spm','dur','how','tick'].forEach(k=>{if(data.prefs[k]!=null){W[k]=data.prefs[k];setPref(k,W[k])}})}
+  renderLog();bk('导入了 '+added+' 条新记录，现在共 '+l.length+' 条'+(ok.length-added?'，'+(ok.length-added)+' 条已存在被跳过':''));
+}
+$('#impFile').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{importText(await f.text())}catch(err){bk('这个文件无法读取')}});
+$('#impBtn').onclick=()=>{const t=$('#impText').value.trim();if(!t){bk('先粘贴备份文本');return}importText(t)};
+
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+$('#mainBtn').onclick=()=>{if(running())stop(false);else start()};
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&running())stop(false)});
+
+const m0=getPref('mode','base');
+setMode(['base','hiss','slide','walk','log'].includes(m0)?m0:'base');
+})();
+</script>
+
+</body>
+</html>
